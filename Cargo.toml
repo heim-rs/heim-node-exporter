@@ -1,0 +1,16 @@
+[package]
+name = "heim-node-exporter"
+version = "0.1.0"
+authors = ["svartalf <self@svartalf.info>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+heim = "0.0.1"
+warp = "0.1.15"
+hyper = "0.12.26"
+http = "0.1.17"
+tokio = "0.1.18"
+bytes = "0.4.12"
+dtoa = "0.4.3"
+itoa = "0.4.3"
