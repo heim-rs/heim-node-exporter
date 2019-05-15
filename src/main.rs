@@ -1,32 +1,29 @@
-use warp::Filter;
-use tokio::sync::mpsc;
-use hyper::{Body, Chunk};
+#![feature(async_await, futures_api, await_macro)]
+
+use tide::{App, Context, EndpointResult};
+use bytes::BytesMut;
+use http_service::Body;
 
 mod metrics;
 mod data;
 
-mod prelude {
-    pub use super::metrics::{MetricBuilder, IntoMetric, spawn_and_send, spawn_and_forward};
-    pub use super::Tx;
-}
+async fn collect(_cx: Context<()>) -> EndpointResult<http::Response<Body>> {
+    let mut buffer = BytesMut::with_capacity(16_384);
 
-pub type Tx = mpsc::UnboundedSender<Chunk>;
+    self::data::cpu::cpu(&mut buffer).await;
+    self::data::host::host(&mut buffer).await;
+    self::data::disk::disk(&mut buffer).await;
+    self::data::memory::memory(&mut buffer).await;
 
-fn collect() -> hyper::Response<Body> {
-    let (tx, rx) = mpsc::unbounded_channel::<Chunk>();
-    let body = Body::wrap_stream(rx);
-
-    data::cpu::spawn_cpu(tx.clone());
-    data::host::spawn_host(tx.clone());
-    data::disk::spawn_disk(tx.clone());
-    data::memory::spawn_memory(tx.clone());
-    data::net::spawn_net(tx.clone());
-
-    hyper::Response::new(body)
+    let resp = http::Response::builder()
+        .status(http::status::StatusCode::OK)
+        .body(Body::from(buffer))
+        .unwrap();
+    Ok(resp)
 }
 
 fn main() {
-    let routes = warp::any().map(collect);
-
-    warp::serve(routes).run(([0, 0, 0, 0], 9101));
+    let mut app = App::new(());
+    app.at("/metrics").get(collect);
+    app.serve("0.0.0.0:9101").unwrap();
 }

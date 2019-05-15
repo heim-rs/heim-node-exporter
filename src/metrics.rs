@@ -1,24 +1,20 @@
 use std::io;
 use std::ops;
 use std::path;
+use std::ffi;
 
-use tokio::prelude::*;
-use hyper::Chunk;
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
+
 use bytes::{BytesMut, BufMut};
 
-use crate::Tx;
+//use crate::Tx;
 
-#[derive(Debug, Default)]
-pub struct Buffer(BytesMut);
-
-impl Buffer {
-    fn into_inner(self) -> BytesMut {
-        self.0
-    }
-}
+#[derive(Debug)]
+pub struct Buffer<'b>(&'b mut BytesMut);
 
 // https://github.com/carllerche/bytes/issues/77
-impl io::Write for Buffer {
+impl<'b> io::Write for Buffer<'b> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let len = buf.len();
         self.0.reserve(len);
@@ -32,7 +28,7 @@ impl io::Write for Buffer {
     }
 }
 
-impl ops::Deref for Buffer {
+impl<'b> ops::Deref for Buffer<'b> {
     type Target = BytesMut;
 
     fn deref(&self) -> &Self::Target {
@@ -40,20 +36,20 @@ impl ops::Deref for Buffer {
     }
 }
 
-impl ops::DerefMut for Buffer {
+impl<'b> ops::DerefMut for Buffer<'b> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-pub struct MetricBuilder {
-    bytes: Buffer,
+pub struct MetricBuilder<'b> {
+    bytes: Buffer<'b>,
 }
 
-impl MetricBuilder {
-    pub fn new() -> MetricBuilder {
+impl<'b> MetricBuilder<'b> {
+    pub fn new(bytes: &'b mut BytesMut) -> MetricBuilder<'b> {
         Self {
-            bytes: Buffer(BytesMut::with_capacity(256)),
+            bytes: Buffer(bytes),
         }
     }
 
@@ -71,19 +67,13 @@ impl MetricBuilder {
         self
     }
 
-    pub fn value<T: MetricValue>(mut self, value: T) -> Chunk {
+    pub fn value<T: MetricValue>(mut self, value: T) {
         self.bytes.put(&b"} "[..]);
         value.put(&mut self.bytes);
         self.bytes.put(b'\n');
-
-        Chunk::from(self.bytes.into_inner().freeze())
     }
 }
 
-
-pub trait IntoMetric {
-    fn into_metric(self) -> Chunk;
-}
 
 pub trait MetricValue {
     fn put(&self, bytes: &mut Buffer);
@@ -96,6 +86,12 @@ impl<'s> MetricValue for &'s str {
 }
 
 impl MetricValue for String {
+    fn put(&self, bytes: &mut Buffer) {
+        bytes.extend_from_slice(self.as_bytes())
+    }
+}
+
+impl<'s> MetricValue for &'s ffi::OsStr {
     fn put(&self, bytes: &mut Buffer) {
         bytes.extend_from_slice(self.as_bytes())
     }
@@ -127,13 +123,21 @@ impl MetricValue for usize {
 
 impl MetricValue for path::Path {
     fn put(&self, bytes: &mut Buffer) {
+        #[cfg(unix)]
+        bytes.extend_from_slice(self.as_os_str().as_bytes());
+
+        #[cfg(not(unix))]
         bytes.extend_from_slice(self.to_string_lossy().as_bytes());
     }
 }
 
 impl<'a> MetricValue for &'a path::Path {
     fn put(&self, bytes: &mut Buffer) {
-        bytes.extend_from_slice(self.to_string_lossy().as_bytes())
+        #[cfg(unix)]
+        bytes.extend_from_slice(self.as_os_str().as_bytes());
+
+        #[cfg(not(unix))]
+        bytes.extend_from_slice(self.to_string_lossy().as_bytes());
     }
 }
 
@@ -143,34 +147,4 @@ impl<T> MetricValue for Option<T> where T: MetricValue {
             value.put(bytes)
         }
     }
-}
-
-pub fn spawn_and_send<F, I>(f: F, tx: Tx)
-    where
-        F: Future<Item=I> + Send + 'static,
-        I: Into<Chunk> + 'static {
-    let f = f
-        .map_err(|_| ())
-        .map(Into::into)
-        .and_then(|chunk| {
-            tx.send(chunk).map_err(|_| ())
-        })
-        .map(|_| ())
-        .map_err(|_| ());
-    warp::spawn(f);
-}
-
-pub fn spawn_and_forward<S, I>(s: S, tx: Tx)
-    where
-        S: Stream<Item=I> + Send + 'static,
-        I: Into<Chunk> + 'static {
-    let f = s
-        .map_err(|_| ())
-        .map(Into::into)
-        .and_then(move |chunk| {
-            tx.clone().send(chunk).map_err(|_| ())
-        })
-        .for_each(|_| Ok(()));
-
-    warp::spawn(f);
 }

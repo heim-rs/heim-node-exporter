@@ -1,44 +1,40 @@
-use tokio::prelude::*;
 use heim::host;
-use heim::host::units::{Time};
-use heim::cpu::units::{second};
+use futures::prelude::*;
 
-use crate::prelude::*;
+use crate::metrics::MetricBuilder;
 
-impl IntoMetric for host::Platform {
-    fn into_metric(self) -> hyper::Chunk {
-        MetricBuilder::new()
-            .name("host_platform")
-            .label("system", self.system())
-            .label("release", self.release())
-            .label("version", self.version())
-            .label("architecture", self.architecture().as_str())
-            .value(1)
-    }
-}
+pub async fn host(buffer: &mut bytes::BytesMut) {
+    let platform = host::platform()
+        .map_ok(|platform| {
+            MetricBuilder::new(buffer)
+                .name("host_platform")
+                .label("system", platform.system())
+                .label("release", platform.release())
+                .label("version", platform.version())
+                .label("architecture", platform.architecture().as_str())
+                .value(1);
+        });
 
-pub struct Uptime(Time);
+    await!(platform).unwrap();
 
-impl IntoMetric for Uptime {
-    fn into_metric(self) -> hyper::Chunk {
-        MetricBuilder::new()
-            .name("host_uptime_seconds")
-            .value(self.0.get::<second>())
-    }
-}
+    let uptime = host::uptime()
+        .map_ok(|uptime| {
+            MetricBuilder::new(buffer)
+                .name("host_uptime_seconds")
+                .value(uptime.get());
+        });
 
-impl IntoMetric for host::User {
-    fn into_metric(self) -> hyper::Chunk {
-        MetricBuilder::new()
-            .name("host_user")
-            .label("username", self.username())
-            .label("terminal", self.terminal().unwrap_or(""))
-            .value(1)
-    }
-}
+    await!(uptime).unwrap();
 
-pub fn spawn_host(tx: Tx) {
-    spawn_and_send(host::platform().map(|platform| platform.into_metric()), tx.clone());
-    spawn_and_send(host::uptime().map(Uptime).map(|uptime| uptime.into_metric()), tx.clone());
-    spawn_and_forward(host::users().map(|user| user.into_metric()), tx);
+    let users = host::users()
+        .try_fold(buffer, |buf, user| {
+            MetricBuilder::new(buf)
+                .name("host_user")
+                .label("username", user.username())
+                .value(1);
+
+            future::ok(buf)
+        });
+
+    await!(users).unwrap();
 }

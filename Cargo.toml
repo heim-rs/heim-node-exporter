@@ -6,11 +6,14 @@ edition = "2018"
 publish = false
 
 [dependencies]
-heim = "0.0.1"
-warp = "0.1.15"
-hyper = "0.12.26"
-http = "0.1.17"
-tokio = "0.1.18"
+heim = "0.0.2"
+tide = "^0.2"
+http = "^0.1"
+http-service = "^0.2"
+futures-preview = "0.3.0-alpha.16"
 bytes = "0.4.12"
 dtoa = "0.4.3"
 itoa = "0.4.3"
+
+[profile.release]
+debug = true

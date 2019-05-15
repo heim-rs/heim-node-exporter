@@ -1,35 +1,39 @@
-use tokio::prelude::*;
 use heim::memory;
-use heim::memory::units::byte;
+use futures::prelude::*;
+use bytes::BytesMut;
 
-use crate::prelude::*;
+use crate::metrics::MetricBuilder;
 
-pub fn spawn_memory(tx: Tx) {
+pub async fn memory(buffer: &mut BytesMut) {
     let memory = memory::memory()
-        .map(|mem| {
-            let total = mem.total().get::<byte>();
-            let available = mem.available().get::<byte>();
-            let free = mem.free().get::<byte>();
-            stream::iter_ok(vec![
-                MetricBuilder::new().name("memory_total_bytes").value(total),
-                MetricBuilder::new().name("memory_available_bytes").value(available),
-                MetricBuilder::new().name("memory_free_bytes").value(free),
-            ])
-        })
-        .flatten_stream();
-    let swap = memory::swap()
-        .map(|swap| {
-            let total = swap.total().get::<byte>();
-            let used = swap.used().get::<byte>();
-            let free = swap.free().get::<byte>();
-            stream::iter_ok(vec![
-                MetricBuilder::new().name("swap_total_bytes").value(total),
-                MetricBuilder::new().name("swap_used_bytes").value(used),
-                MetricBuilder::new().name("swap_free_bytes").value(free),
-            ])
-        })
-        .flatten_stream();
+        .map_ok(|mem| {
+            MetricBuilder::new(buffer)
+                .name("memory_total_bytes")
+                .value(mem.total().get());
 
-    spawn_and_forward(memory, tx.clone());
-    spawn_and_forward(swap, tx.clone());
+            MetricBuilder::new(buffer)
+                .name("memory_available_bytes")
+                .value(mem.available().get());
+
+            MetricBuilder::new(buffer)
+                .name("memory_free_bytes")
+                .value(mem.free().get());
+        });
+
+    await!(memory).unwrap();
+
+    let swap = memory::swap()
+        .map_ok(|swap| {
+            MetricBuilder::new(buffer)
+                .name("swap_total_bytes")
+                .value(swap.total().get());
+            MetricBuilder::new(buffer)
+                .name("swap_used_bytes")
+                .value(swap.used().get());
+            MetricBuilder::new(buffer)
+                .name("swap_free_bytes")
+                .value(swap.free().get());
+        });
+
+    await!(swap).unwrap();
 }

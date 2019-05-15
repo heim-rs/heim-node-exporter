@@ -1,56 +1,70 @@
-use tokio::prelude::*;
 use heim::disk;
-use heim::disk::units::byte;
+use futures::prelude::*;
+use bytes::BytesMut;
 
-use crate::prelude::*;
+use crate::metrics::MetricBuilder;
 
-pub fn spawn_disk(tx: Tx) {
+pub async fn disk(buffer: &mut BytesMut) {
     let partitions = disk::partitions()
         .and_then(|part| {
+            // TODO: Get rid of the `to_path_buf` if it is possible
             disk::usage(part.mount_point().to_path_buf())
-                .map(|usage| Ok((part, usage)))
+                .map_ok(|usage| (part, usage))
         })
-        .buffer_unordered(5)
-        .map(|(part, usage)| {
-            stream::iter_ok::<_, heim::Error>(vec![
-                MetricBuilder::new().name("disk_total_bytes")
-                    .label("device", part.device())
-                    .label("mount_point", part.mount_point())
-                    .label("file_system", part.file_system().as_str())
-                    .value(usage.total().get::<byte>()),
-                MetricBuilder::new().name("disk_used_bytes")
-                    .label("device", part.device())
-                    .label("mount_point", part.mount_point())
-                    .label("file_system", part.file_system().as_str())
-                    .value(usage.used().get::<byte>()),
-                MetricBuilder::new().name("disk_free_bytes")
-                    .label("device", part.device())
-                    .label("mount_point", part.mount_point())
-                    .label("file_system", part.file_system().as_str())
-                    .value(usage.free().get::<byte>()),
-            ])
-        })
-        .flatten();
+        // Some filesystems might return an error for `disk::usage` (ex. Linux' debugfs),
+        // skipping them silently
+        .filter(|res| future::ready(res.is_ok()))
+        .try_fold(buffer, |buf, (part, usage)| {
+            MetricBuilder::new(buf)
+                .name("disk_total_bytes")
+                .label("device", part.device())
+                .label("mount_point", part.mount_point())
+                .label("file_system", part.file_system().as_str())
+                .value(usage.total().get());
+
+            MetricBuilder::new(buf)
+                .name("disk_used_bytes")
+                .label("device", part.device())
+                .label("mount_point", part.mount_point())
+                .label("file_system", part.file_system().as_str())
+                .value(usage.used().get());
+
+            MetricBuilder::new(buf)
+                .name("disk_free_bytes")
+                .label("device", part.device())
+                .label("mount_point", part.mount_point())
+                .label("file_system", part.file_system().as_str())
+                .value(usage.free().get());
+
+            future::ok(buf)
+        });
+
+    let buffer = await!(partitions).unwrap();
 
     let io_counters = disk::io_counters()
-        .map(|io| {
-            stream::iter_ok::<_, heim::Error>(vec![
-                MetricBuilder::new().name("disk_io_read_count")
-                    .label("device", io.device_name())
-                    .value(io.read_count()),
-                MetricBuilder::new().name("disk_io_write_count")
-                    .label("device", io.device_name())
-                    .value(io.write_count()),
-                MetricBuilder::new().name("disk_io_read_bytes")
-                    .label("device", io.device_name())
-                    .value(io.read_bytes().get::<byte>()),
-                MetricBuilder::new().name("disk_io_write_bytes")
-                    .label("device", io.device_name())
-                    .value(io.write_bytes().get::<byte>()),
-            ])
-        })
-        .flatten();
+        .try_fold(buffer, |buf, io| {
+            MetricBuilder::new(buf)
+                .name("disk_io_read_count")
+                .label("device", io.device_name())
+                .value(io.read_count());
 
-    spawn_and_forward(partitions, tx.clone());
-    spawn_and_forward(io_counters, tx.clone());
+            MetricBuilder::new(buf)
+                .name("disk_io_write_count")
+                .label("device", io.device_name())
+                .value(io.write_count());
+
+            MetricBuilder::new(buf)
+                .name("disk_io_read_bytes")
+                .label("device", io.device_name())
+                .value(io.read_bytes().get());
+
+            MetricBuilder::new(buf)
+                .name("disk_io_write_bytes")
+                .label("device", io.device_name())
+                .value(io.write_bytes().get());
+
+            future::ok(buf)
+        });
+
+    await!(io_counters).unwrap();
 }
