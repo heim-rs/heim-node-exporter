@@ -1,12 +1,12 @@
+use std::ffi;
 use std::io;
 use std::ops;
 use std::path;
-use std::ffi;
 
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 
-use bytes::{BytesMut, BufMut};
+use bytes::{BufMut, BytesMut};
 
 //use crate::Tx;
 
@@ -74,7 +74,6 @@ impl<'b> MetricBuilder<'b> {
     }
 }
 
-
 pub trait MetricValue {
     fn put(&self, bytes: &mut Buffer);
 }
@@ -141,7 +140,10 @@ impl<'a> MetricValue for &'a path::Path {
     }
 }
 
-impl<T> MetricValue for Option<T> where T: MetricValue {
+impl<T> MetricValue for Option<T>
+where
+    T: MetricValue,
+{
     fn put(&self, bytes: &mut Buffer) {
         if let Some(value) = self {
             value.put(bytes)

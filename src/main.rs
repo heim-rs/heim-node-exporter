@@ -1,11 +1,13 @@
-#![feature(async_await, futures_api, await_macro)]
+#![feature(async_await)]
 
-use tide::{App, Context, EndpointResult};
+use std::io;
+
 use bytes::BytesMut;
 use http_service::Body;
+use tide::{App, Context, EndpointResult};
 
-mod metrics;
 mod data;
+mod metrics;
 
 async fn collect(_cx: Context<()>) -> EndpointResult<http::Response<Body>> {
     let mut buffer = BytesMut::with_capacity(16_384);
@@ -22,8 +24,10 @@ async fn collect(_cx: Context<()>) -> EndpointResult<http::Response<Body>> {
     Ok(resp)
 }
 
-fn main() {
-    let mut app = App::new(());
+fn main() -> io::Result<()> {
+    let mut app = App::new();
     app.at("/metrics").get(collect);
-    app.serve("0.0.0.0:9101").unwrap();
+    app.run("0.0.0.0:9101")?;
+
+    Ok(())
 }

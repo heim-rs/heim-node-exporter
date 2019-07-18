@@ -1,6 +1,6 @@
-use heim::disk;
-use futures::prelude::*;
 use bytes::BytesMut;
+use futures::prelude::*;
+use heim::disk;
 
 use crate::metrics::MetricBuilder;
 
@@ -8,8 +8,7 @@ pub async fn disk(buffer: &mut BytesMut) {
     let partitions = disk::partitions()
         .and_then(|part| {
             // TODO: Get rid of the `to_path_buf` if it is possible
-            disk::usage(part.mount_point().to_path_buf())
-                .map_ok(|usage| (part, usage))
+            disk::usage(part.mount_point().to_path_buf()).map_ok(|usage| (part, usage))
         })
         // Some filesystems might return an error for `disk::usage` (ex. Linux' debugfs),
         // skipping them silently
@@ -39,32 +38,31 @@ pub async fn disk(buffer: &mut BytesMut) {
             future::ok(buf)
         });
 
-    let buffer = await!(partitions).unwrap();
+    let buffer = partitions.await.unwrap();
 
-    let io_counters = disk::io_counters()
-        .try_fold(buffer, |buf, io| {
-            MetricBuilder::new(buf)
-                .name("disk_io_read_count")
-                .label("device", io.device_name())
-                .value(io.read_count());
+    let io_counters = disk::io_counters().try_fold(buffer, |buf, io| {
+        MetricBuilder::new(buf)
+            .name("disk_io_read_count")
+            .label("device", io.device_name())
+            .value(io.read_count());
 
-            MetricBuilder::new(buf)
-                .name("disk_io_write_count")
-                .label("device", io.device_name())
-                .value(io.write_count());
+        MetricBuilder::new(buf)
+            .name("disk_io_write_count")
+            .label("device", io.device_name())
+            .value(io.write_count());
 
-            MetricBuilder::new(buf)
-                .name("disk_io_read_bytes")
-                .label("device", io.device_name())
-                .value(io.read_bytes().get());
+        MetricBuilder::new(buf)
+            .name("disk_io_read_bytes")
+            .label("device", io.device_name())
+            .value(io.read_bytes().get());
 
-            MetricBuilder::new(buf)
-                .name("disk_io_write_bytes")
-                .label("device", io.device_name())
-                .value(io.write_bytes().get());
+        MetricBuilder::new(buf)
+            .name("disk_io_write_bytes")
+            .label("device", io.device_name())
+            .value(io.write_bytes().get());
 
-            future::ok(buf)
-        });
+        future::ok(buf)
+    });
 
-    await!(io_counters).unwrap();
+    io_counters.await.unwrap();
 }

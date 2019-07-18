@@ -1,59 +1,58 @@
-use heim::cpu;
 use futures::prelude::*;
+use heim::cpu;
 
 use crate::metrics::MetricBuilder;
 
 pub async fn cpu(buffer: &mut bytes::BytesMut) {
-    let frequencies = cpu::frequency()
-        .map_ok(|freq| {
-            let current = freq.current().get();
-            let min = freq.min().map(|v| v.get());
-            let max = freq.max().map(|v| v.get());
+    let frequencies = cpu::frequency().map_ok(|freq| {
+        let current = freq.current().get();
+        let min = freq.min().map(|v| v.get());
+        let max = freq.max().map(|v| v.get());
 
-            MetricBuilder::new(buffer)
-                .name("cpu_frequency_hertz")
-                .value(current);
+        MetricBuilder::new(buffer)
+            .name("cpu_frequency_hertz")
+            .value(current);
 
-            MetricBuilder::new(buffer)
-                .name("cpu_frequency_max_hertz")
-                .value(min);
+        MetricBuilder::new(buffer)
+            .name("cpu_frequency_max_hertz")
+            .value(min);
 
-            MetricBuilder::new(buffer)
-                .name("cpu_frequency_max_hertz")
-                .value(max);
-        });
+        MetricBuilder::new(buffer)
+            .name("cpu_frequency_max_hertz")
+            .value(max);
+    });
 
-    await!(frequencies).unwrap();
+    frequencies.await.unwrap();
 
-    let stats = cpu::stats()
-        .map_ok(|stat| {
-            MetricBuilder::new(buffer)
-                .name("cpu_stats_ctx_switches")
-                .value(stat.ctx_switches());
+    let stats = cpu::stats().map_ok(|stat| {
+        MetricBuilder::new(buffer)
+            .name("cpu_stats_ctx_switches")
+            .value(stat.ctx_switches());
 
-            MetricBuilder::new(buffer)
-                .name("cpu_stats_interrupts")
-                .value(stat.interrupts());
+        MetricBuilder::new(buffer)
+            .name("cpu_stats_interrupts")
+            .value(stat.interrupts());
 
-            MetricBuilder::new(buffer)
-                .name("cpu_stats_soft_interrupts")
-                .value(stat.soft_interrupts());
-        });
+        MetricBuilder::new(buffer)
+            .name("cpu_stats_soft_interrupts")
+            .value(stat.soft_interrupts());
+    });
 
-    await!(stats).unwrap();
+    stats.await.unwrap();
 
-    let time = cpu::time()
-        .map_ok(|time| {
-            let user = time.user().get();
-            let system = time.system().get();
-            let idle = time.idle().get();
+    let time = cpu::time().map_ok(|time| {
+        let user = time.user().get();
+        let system = time.system().get();
+        let idle = time.idle().get();
 
-            MetricBuilder::new(buffer).name("cpu_time_user").value(user);
-            MetricBuilder::new(buffer).name("cpu_time_system").value(system);
-            MetricBuilder::new(buffer).name("cpu_time_idle").value(idle);
-        });
+        MetricBuilder::new(buffer).name("cpu_time_user").value(user);
+        MetricBuilder::new(buffer)
+            .name("cpu_time_system")
+            .value(system);
+        MetricBuilder::new(buffer).name("cpu_time_idle").value(idle);
+    });
 
-    await!(time).unwrap();
+    time.await.unwrap();
 
     let times = cpu::times()
         .enumerate()
@@ -80,12 +79,12 @@ pub async fn cpu(buffer: &mut bytes::BytesMut) {
                         .value(idle);
 
                     buf
-                },
+                }
                 Err(_) => buf,
             };
 
             future::ready(buf)
         });
 
-    await!(times);
+    times.await;
 }
