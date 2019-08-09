@@ -488,7 +488,7 @@ dependencies = [
  "heim 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "itoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "metrics-core 0.5.0 (git+https://github.com/svartalf/metrics.git?branch=metrics-core-labels-macro-root)",
+ "metrics-core 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics-runtime 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tide 0.2.0 (git+https://github.com/rustasync/tide.git)",
 ]
@@ -751,13 +751,13 @@ name = "metrics"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "metrics-core 0.5.0 (git+https://github.com/svartalf/metrics.git?branch=metrics-core-labels-macro-root)",
+ "metrics-core 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "metrics-core"
-version = "0.5.0"
-source = "git+https://github.com/svartalf/metrics.git?branch=metrics-core-labels-macro-root#4337d8650a2962bcf8812e3582f1438e95e35aeb"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "metrics-observer-prometheus"
@@ -765,7 +765,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "hdrhistogram 6.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "metrics-core 0.5.0 (git+https://github.com/svartalf/metrics.git?branch=metrics-core-labels-macro-root)",
+ "metrics-core 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics-util 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -780,7 +780,7 @@ dependencies = [
  "hashbrown 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "im 12.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "metrics-core 0.5.0 (git+https://github.com/svartalf/metrics.git?branch=metrics-core-labels-macro-root)",
+ "metrics-core 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics-observer-prometheus 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics-util 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1852,7 +1852,7 @@ dependencies = [
 "checksum memchr 2.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "88579771288728879b57485cc7d6b07d648c9f0141eb955f8ab7f9d45394468e"
 "checksum memoffset 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ce6075db033bbbb7ee5a0bbd3a3186bbae616f57fb001c485c7ff77955f8177f"
 "checksum metrics 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d40b06d593ce38e61f94ee9ac07a0123438d9972056f8e729ebdb159294b87a5"
-"checksum metrics-core 0.5.0 (git+https://github.com/svartalf/metrics.git?branch=metrics-core-labels-macro-root)" = "<none>"
+"checksum metrics-core 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ead6e166cdc95b0bb5333202025a0cc76d34f3a2b070e5d513162545988df554"
 "checksum metrics-observer-prometheus 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "90707830292a6223c046773caaa7c1121aa71dca75d156a4672cba8654eb8d2d"
 "checksum metrics-runtime 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "073904d61007944cbfea73b8c3c1b3402786e752a2e654efa8291cfcb8b98c60"
 "checksum metrics-util 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b3024c8bfd2e14b14ca48c38a47d01472401e46492d1b9a45c2b68821d6ede88"

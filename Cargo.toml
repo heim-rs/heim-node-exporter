@@ -9,7 +9,7 @@ publish = false
 heim = "0.0.6"
 tide = { git = "https://github.com/rustasync/tide.git" }
 metrics = "0.11.0"
-metrics-core = "0.5.0"
+metrics-core = "0.5.1"
 metrics-runtime = { version = "0.1.0", default-features = false, features = ["metrics-observer-prometheus"] }
 futures-preview = { version = "0.3.0-alpha.17", features = ["nightly", "async-await"] }
 bytes = "0.4.12"
@@ -18,4 +18,3 @@ itoa = "0.4.3"
 
 [patch.crates-io]
 futures-preview = { git = "https://github.com/rust-lang-nursery/futures-rs.git", rev = "049922dc4f26b0b3123a7824a72b4c109bebd86a" }
-metrics-core = { git = "https://github.com/svartalf/metrics.git", branch = "metrics-core-labels-macro-root" }
