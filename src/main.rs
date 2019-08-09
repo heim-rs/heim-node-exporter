@@ -1,33 +1,42 @@
 #![feature(async_await)]
 
-use std::io;
+use metrics_core::{Builder, Drain, Observe};
+use metrics_runtime::{observers::PrometheusBuilder, Controller, Receiver};
 
-use bytes::BytesMut;
-use http_service::Body;
-use tide::{App, Context, EndpointResult};
+mod collectors;
 
-mod data;
-mod metrics;
-
-async fn collect(_cx: Context<()>) -> EndpointResult<http::Response<Body>> {
-    let mut buffer = BytesMut::with_capacity(16_384);
-
-    self::data::cpu::cpu(&mut buffer).await;
-    self::data::host::host(&mut buffer).await;
-    self::data::disk::disk(&mut buffer).await;
-    self::data::memory::memory(&mut buffer).await;
-
-    let resp = http::Response::builder()
-        .status(http::status::StatusCode::OK)
-        .body(Body::from(buffer))
-        .unwrap();
-    Ok(resp)
+pub struct State {
+    controller: Controller,
 }
 
-fn main() -> io::Result<()> {
-    let mut app = App::new();
-    app.at("/metrics").get(collect);
-    app.run("0.0.0.0:9101")?;
+async fn metrics(ctx: tide::Context<State>) -> tide::EndpointResult {
+    match collectors::collect().await {
+        Ok(..) => {
+            let mut observer = PrometheusBuilder::new().build();
+            ctx.state().controller.observe(&mut observer);
+
+            Ok(tide::Response::new(tide::Body::from(observer.drain())))
+        }
+        Err(e) => {
+            let body = tide::Body::from(format!("{}", e));
+            let mut resp = tide::Response::new(body);
+            *resp.status_mut() = tide::http::StatusCode::INTERNAL_SERVER_ERROR;
+
+            Ok(resp)
+        }
+    }
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let receiver = Receiver::builder().build()?;
+
+    let mut app = tide::App::with_state(State {
+        controller: receiver.get_controller(),
+    });
+    app.at("/metrics").get(metrics);
+    receiver.install();
+
+    app.run(("0.0.0.0", 9101))?;
 
     Ok(())
 }
