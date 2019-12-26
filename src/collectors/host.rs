@@ -3,7 +3,7 @@ use heim::Result;
 async fn uptime() -> Result<()> {
     let uptime = heim::host::uptime().await?;
 
-    metrics::counter!("node_uptime_seconds", uptime.get() as u64);
+    metrics::gauge!("node_uptime_seconds", uptime.get() as u64);
 
     Ok(())
 }
